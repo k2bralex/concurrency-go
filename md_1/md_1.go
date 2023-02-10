@@ -47,9 +47,8 @@ func PrintRange(from, too, gor int) {
 
 func MinMaxAvgGoroutines(min, max, len int) {
 
-	slPtr := fillSlice(min, max, len)
-
 	start := time.Now()
+	slPtr := fillSliceGoroutines(min, max, len)
 
 	minVal := make(chan int)
 	maxVal := make(chan int)
@@ -60,7 +59,7 @@ func MinMaxAvgGoroutines(min, max, len int) {
 	findAvg(slPtr, avgVal)
 
 	fmt.Printf(
-		"In range %d : %d, len = %d\nMin = %d\nMax = %d\nAvg = %d\n",
+		"Range %d : %d, Array len = %d\nMin = %d\nMax = %d\nAvg = %d\n",
 		min,
 		max,
 		len,
@@ -69,21 +68,21 @@ func MinMaxAvgGoroutines(min, max, len int) {
 		<-avgVal,
 	)
 
-	fmt.Println(time.Now().Sub(start).Nanoseconds())
+	fmt.Println("Time, use goroutines: sec", time.Now().Sub(start).Seconds())
 }
 
 func MinMaxAvgNoGoroutines(min, max, len int) {
 
-	slPtr := fillSlice(min, max, len)
-
 	start := time.Now()
+
+	slPtr := fillSlice(min, max, len)
 
 	mi := findMinLine(max, slPtr)
 	ma := findMaxLine(min, slPtr)
 	av := findAvgLine(slPtr)
 
 	fmt.Printf(
-		"In range %d : %d, len = %d\nMin = %d\nMax = %d\nAvg = %d\n",
+		"Range %d : %d, Array len = %d\nMin = %d\nMax = %d\nAvg = %d\n",
 		min,
 		max,
 		len,
@@ -92,7 +91,7 @@ func MinMaxAvgNoGoroutines(min, max, len int) {
 		av,
 	)
 
-	fmt.Println(time.Now().Sub(start).Nanoseconds())
+	fmt.Println("Time, no goroutines: sec", time.Now().Sub(start).Seconds())
 }
 
 func findAvgLine(s *[]int) int64 {
@@ -172,12 +171,29 @@ func fillSlice(min, max, len int) *[]int {
 	return &slice
 }
 
-func fillSliceGoroutines(min, max, len int) *[]int {
-	var slice []int
+func fillSliceGoroutines(min, max, lent int) *[]int {
+	var (
+		wg sync.WaitGroup
+	)
+	slice := make([]int, lent)
 
-	for i := 0; i < len; i++ {
-		slice = append(slice, randomGen(min, max))
+	gor := finMaxDivisor(lent)
+	offset := make([]int, lent/gor)
+	for i := 0; i < len(offset); i++ {
+		offset[i] = i * lent / gor
 	}
+	wg.Add(gor)
+
+	for i := 0; i < gor; i++ {
+		k := offset[i]
+		go func() {
+			defer wg.Done()
+			for j := 0; j < lent/gor; j++ {
+				slice[k+j] = randomGen(min, max)
+			}
+		}()
+	}
+	wg.Wait()
 	return &slice
 }
 
@@ -187,10 +203,13 @@ func randomGen(min, max int) int {
 
 }
 
-func finMaxDivisior(n int) int {
-	num := 2
-	for n%num == 0 {
-		num++
+func finMaxDivisor(n int) int {
+	if n%1000 == 0 {
+		return 1000
+	} else if n%100 == 0 {
+		return 100
+	} else if n%10 == 0 {
+		return 10
 	}
-	return n / num
+	return 1
 }
